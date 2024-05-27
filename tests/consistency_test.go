@@ -514,6 +514,91 @@ var _ = Describe("Consistency", Ordered, func() {
 		}
 	})
 
+	It("RPop Consistency Test", func() {
+		const testKey = "RPopConsistencyTestKey"
+		testValues := []string{"ra", "rb", "rc", "rd"}
+		rpush, err := leader.RPush(ctx, testKey, testValues).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rpush).To(Equal(int64(len(testValues))))
+		{
+			// RPop on leader
+			rPop, err := leader.RPop(ctx, testKey).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rPop).To(Equal(testValues[len(testValues)-1]))
+			// read check
+			readChecker(func(c *redis.Client) {
+				lrange, err := c.LRange(ctx, testKey, 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lrange).To(Equal(testValues[:len(testValues)-1]))
+			})
+		}
+	})
+
+	It("RPopLPush Consistency Test", func() {
+		const sourceKey = "RPopLPushSourceTestKey"
+		const destinationKey = "RPopLPushDestinationTestKey"
+		testValues := []string{"ra", "rb", "rc", "rd"}
+		lpush, err := leader.RPush(ctx, sourceKey, testValues).Result()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(lpush).To(Equal(int64(len(testValues))))
+		{
+			// RPopLPush on leader
+			rPopLPush, err := leader.RPopLPush(ctx, sourceKey, destinationKey).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rPopLPush).To(Equal(testValues[len(testValues)-1]))
+			// read check for source
+			readChecker(func(c *redis.Client) {
+				lrange, err := c.LRange(ctx, sourceKey, 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lrange).To(Equal(testValues[:len(testValues)-1]))
+			})
+			// read check for destination
+			readChecker(func(c *redis.Client) {
+				lrange, err := c.LRange(ctx, destinationKey, 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lrange).To(Equal([]string{testValues[len(testValues)-1]}))
+			})
+		}
+	})
+
+	It("RPush Consistency Test", func() {
+		const testKey = "RPushConsistencyTestKey"
+		testValues := []string{"ra", "rb", "rc", "rd"}
+		{
+			// RPush on leader
+			rPush, err := leader.RPush(ctx, testKey, testValues).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rPush).To(Equal(int64(len(testValues))))
+			// read check
+			readChecker(func(c *redis.Client) {
+				lrange, err := c.LRange(ctx, testKey, 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lrange).To(Equal(testValues))
+			})
+		}
+	})
+
+	It("RPushX Consistency Test", func() {
+		const testKey = "RPushXConsistencyTestKey"
+		testValues := []string{"ra", "rb", "rc", "rd"}
+		{
+			// RPush write on leader
+			rPush, err := leader.RPush(ctx, testKey, testValues[0]).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rPush).To(Equal(int64(1)))
+			// RPushX write on leader
+			rPushX, err := leader.RPushX(ctx, testKey, testValues[1:]).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rPushX).To(Equal(int64(len(testValues))))
+			// read check
+			readChecker(func(c *redis.Client) {
+				lrange, err := c.LRange(ctx, testKey, 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lrange).To(Equal(testValues))
+			})
+		}
+	})
+
 	It("ZAdd Consistency Test", func() {
 		const testKey = "ZSetsConsistencyTestKey"
 		testData := []redis.Z{
