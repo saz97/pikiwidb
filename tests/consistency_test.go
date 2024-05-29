@@ -626,6 +626,74 @@ var _ = Describe("Consistency", Ordered, func() {
 		}
 	})
 
+	It("ZPopMin & ZPopMax Consistency Test", func() {
+		const testKey = "ZSetsConsistencyTestKey"
+		i4 := redis.Z{Score: 4, Member: "z4"}
+		i5 := redis.Z{Score: 5, Member: "z5"}
+		i8 := redis.Z{Score: 8, Member: "z8"}
+		{
+			zadd, err := leader.ZAdd(ctx, testKey, i4, i5, i8).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(zadd).To(Equal(int64(3)))
+
+			vals, err := leader.ZPopMin(ctx, testKey).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vals).To(Equal([]redis.Z{i4}))
+
+			vals, err = leader.ZPopMax(ctx, testKey).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vals).To(Equal([]redis.Z{i8}))
+
+			// read check
+			readChecker(func(c *redis.Client) {
+				zrange, err := c.ZRevRangeWithScores(ctx, testKey, 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zrange).To(Equal([]redis.Z{i5}))
+			})
+		}
+	})
+
+	It("ZUnionstore & ZInterStore Consistency Test", func() {
+		i4 := redis.Z{Score: 4, Member: "z4"}
+		i5 := redis.Z{Score: 5, Member: "z5"}
+		i8 := redis.Z{Score: 8, Member: "z8"}
+		{
+			zadd, err := leader.ZAdd(ctx, "in1", i4, i5).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(zadd).To(Equal(int64(2)))
+
+			zadd, err = leader.ZAdd(ctx, "in2", i4, i8).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(zadd).To(Equal(int64(2)))
+
+			vals, err := leader.ZUnionStore(ctx, "out1", &redis.ZStore{
+				Keys:      []string{"in1", "in2"},
+				Weights:   []float64{1, 1},
+				Aggregate: "MIN",
+			}).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vals).To(Equal(int64(3)))
+
+			vals, err = leader.ZInterStore(ctx, "out2", &redis.ZStore{
+				Keys:      []string{"in1", "in2"},
+				Weights:   []float64{1, 1},
+				Aggregate: "MIN",
+			}).Result()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vals).To(Equal(int64(1)))
+
+			readChecker(func(c *redis.Client) {
+				zrange, err := c.ZRevRangeWithScores(ctx, "out1", 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zrange).To(Equal([]redis.Z{i8, i5, i4}))
+
+				zrange, err = c.ZRevRangeWithScores(ctx, "out2", 0, -1).Result()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(zrange).To(Equal([]redis.Z{i4}))
+			})
+		}
+	})
+
 	It("SetBit Consistency Test", func() {
 		const testKey = "StringsConsistencyTestKey"
 		{
