@@ -93,6 +93,10 @@ HMSetCmd::HMSetCmd(const std::string& name, int16_t arity)
     : BaseCmd(name, arity, kCmdFlagsWrite, kAclCategoryWrite | kAclCategoryHash) {}
 
 bool HMSetCmd::DoInitial(PClient* client) {
+  if (client->argv_.size() % 2 != 0) {
+    client->SetRes(CmdRes::kWrongNum, kCmdNameHMSet);
+    return false;
+  }
   client->SetKey(client->argv_[1]);
   client->ClearFvs();
   // set fvs
@@ -116,6 +120,7 @@ HMGetCmd::HMGetCmd(const std::string& name, int16_t arity)
 
 bool HMGetCmd::DoInitial(PClient* client) {
   client->SetKey(client->argv_[1]);
+  client->ClearFields();
   for (size_t i = 2; i < client->argv_.size(); ++i) {
     client->Fields().push_back(client->argv_[i]);
   }

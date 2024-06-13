@@ -726,7 +726,10 @@ void ZScoreCmd::DoCmd(PClient* client) {
   storage::Status s;
   s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->ZScore(client->Key(), client->argv_[2], &score);
   if (s.ok() || s.IsNotFound()) {
-    client->AppendString(std::to_string(score));
+    char buf[32];
+    int64_t len = pstd::D2string(buf, sizeof(buf), score);
+    client->AppendStringLen(len);
+    client->AppendContent(buf);
   } else {
     client->SetRes(CmdRes::kErrOther, s.ToString());
   }
