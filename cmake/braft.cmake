@@ -10,7 +10,7 @@ SET(BRAFT_INSTALL_DIR ${THIRD_PARTY_PATH}/install/braft)
 SET(BRAFT_INCLUDE_DIR "${BRAFT_INSTALL_DIR}/include" CACHE PATH "braft include directory." FORCE)
 SET(BRAFT_LIBRARIES "${BRAFT_INSTALL_DIR}/lib/libbraft.a" CACHE FILEPATH "braft library." FORCE)
 
-SET(prefix_path "${THIRD_PARTY_PATH}/install/brpc|${CMAKE_CURRENT_BINARY_DIR}/_deps/gflags-build|${THIRD_PARTY_PATH}/install/protobuf|${THIRD_PARTY_PATH}/install/zlib|${CMAKE_CURRENT_BINARY_DIR}/_deps/leveldb-build|${CMAKE_CURRENT_BINARY_DIR}/_deps/leveldb-src")
+SET(prefix_path "${THIRD_PARTY_PATH}/install/brpc|${CMAKE_CURRENT_BINARY_DIR}/_deps/gflags-build|${THIRD_PARTY_PATH}/install/protobuf|${THIRD_PARTY_PATH}/install/zlib|${THIRD_PARTY_PATH}/install/leveldb")
 
 ExternalProject_Add(
         extern_braft
