@@ -7,8 +7,10 @@
 
 #include "base_cmd.h"
 #include "common.h"
+#include "config.h"
 #include "log.h"
 #include "pikiwidb.h"
+#include "praft/praft.h"
 
 namespace pikiwidb {
 
@@ -31,6 +33,20 @@ std::vector<std::string> BaseCmd::CurrentKey(PClient* client) const { return std
 
 void BaseCmd::Execute(PClient* client) {
   DEBUG("execute command: {}", client->CmdName());
+
+  if (g_config.use_raft.load()) {
+    // 1. If PRAFT is not initialized yet, return an error message to the client for both read and write commands.
+    if (!PRAFT.IsInitialized() && (HasFlag(kCmdFlagsReadonly) || HasFlag(kCmdFlagsWrite))) {
+      DEBUG("drop command: {}", client->CmdName());
+      return client->SetRes(CmdRes::kErrOther, "PRAFT is not initialized");
+    }
+
+    // 2. If PRAFT is initialized and the current node is not the leader, return a redirection message for write
+    // commands.
+    if (HasFlag(kCmdFlagsWrite) && !PRAFT.IsLeader()) {
+      return client->SetRes(CmdRes::kErrOther, fmt::format("MOVED {}", PRAFT.GetLeaderAddress()));
+    }
+  }
 
   auto dbIndex = client->GetCurrentDB();
   if (!HasFlag(kCmdFlagsExclusive)) {
