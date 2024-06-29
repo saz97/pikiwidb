@@ -121,6 +121,11 @@ void DB::LoadDBFromCheckpoint(const std::string& checkpoint_path, bool sync [[ma
     abort();
   }
 
+  // in single-mode, pikiwidb will enable wal
+  if (!g_config.use_raft.load(std::memory_order_relaxed)) {
+    storage_->DisableWal(false);
+  }
+
   opened_ = true;
   INFO("DB{} load a checkpoint from {} success!", db_index_, checkpoint_path);
 }

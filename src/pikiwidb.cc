@@ -172,8 +172,6 @@ bool PikiwiDB::Init() {
     PREPL.SetMasterAddr(g_config.master_ip.ToString().c_str(), g_config.master_port.load());
   }
 
-  //  cmd_table_manager_.InitCmdTable();
-
   return true;
 }
 
