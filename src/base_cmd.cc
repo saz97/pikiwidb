@@ -96,6 +96,33 @@ BaseCmd* BaseCmdGroup::GetSubCmd(const std::string& cmdName) {
   return subCmd->second.get();
 }
 
+void BaseCmd::ServeAndUnblockConns(const std::string& key) {
+  auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
+  if (auto it = key_to_conns.find(blrPop_key); it == key_to_conns.end()) {
+      // no client is waitting for this key
+      return;
+  }
+  auto& waitting_list = it->second;
+  std::vector<std::string> elements;
+  storage::Status s;
+
+  // traverse this list from head to tail(in the order of adding sequence) ,means "first blocked, first get served“
+  for (auto conn_blocked = waitting_list->begin(); conn_blocked != waitting_list->end();) {
+    PClient* client = *conn_blocked;
+    s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(key, 1, &elements);
+    if (s.ok()) {
+      client->AppendString(elements[0]);
+    } else if (s.IsNotFound()) {
+      // this key has no more elements to serve more blocked conn.
+      break;
+    } else {
+      client->SetRes(CmdRes::kErrOther, s.ToString());
+    }
+    conn_blocked = waitting_list->erase(conn_blocked);  // remove this conn from current waiting list
+    
+  }
+}
+
 bool BaseCmdGroup::DoInitial(PClient* client) {
   client->SetSubCmdName(client->argv_[1]);
   if (!subCmds_.contains(client->SubCmdName())) {

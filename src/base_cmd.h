@@ -130,6 +130,7 @@ const std::string kCmdNameLPushx = "lpushx";
 const std::string kCmdNameRPush = "rpush";
 const std::string kCmdNameRPushx = "rpushx";
 const std::string kCmdNameLPop = "lpop";
+const std::string kCmdNameBLPop = "blpop";
 const std::string kCmdNameRPop = "rpop";
 const std::string kCmdNameLRem = "lrem";
 const std::string kCmdNameLRange = "lrange";
@@ -314,6 +315,8 @@ class BaseCmd : public std::enable_shared_from_this<BaseCmd> {
   //  std::shared_ptr<std::string> GetResp();
 
   uint32_t GetCmdID() const;
+
+  void ServeAndUnblockConns(const std::string& key, std::shared_ptr<DB> db);
 
  protected:
   // Execute a specific command
