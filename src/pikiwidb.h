@@ -45,6 +45,10 @@ class PikiwiDB final {
 
   void PushWriteTask(const std::shared_ptr<pikiwidb::PClient>& client) { worker_threads_.PushWriteTask(client); }
 
+  std::unordered_map<std::string, std::unique_ptr<std::list<pikiwidb::PClient*>>>& GetMapFromKeyToConns() {
+    return key_to_blocked_conns_;
+  }
+
  public:
   PString cfg_file_;
   uint16_t port_{0};
@@ -60,6 +64,14 @@ class PikiwiDB final {
   pikiwidb::IOThreadPool slave_threads_;
   pikiwidb::CmdThreadPool cmd_threads_;
   //  pikiwidb::CmdTableManager cmd_table_manager_;
+  /*
+   *  Blpop/BRpop used
+   */
+  /*  key_to_blocked_conns_:
+   *  mapping from "Blockkey"(eg. "<db0, list1>") to a list that stored the nodes of client-connections that
+   *  were blocked by command blpop/brpop with key.
+   */
+  std::unordered_map<std::string, std::unique_ptr<std::list<pikiwidb::PClient*>>> key_to_blocked_conns_;
 
   uint32_t cmd_id_ = 0;
 };

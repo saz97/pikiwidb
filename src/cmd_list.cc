@@ -8,6 +8,7 @@
 #include "cmd_list.h"
 #include "pstd_string.h"
 #include "store.h"
+#include "pikiwidb.h"
 
 namespace pikiwidb {
 LPushCmd::LPushCmd(const std::string& name, int16_t arity)
@@ -112,6 +113,42 @@ void RPushxCmd::DoCmd(PClient* client) {
     client->AppendInteger(reply_num);
   } else {
     client->SetRes(CmdRes::kErrOther, s.ToString());
+  }
+}
+
+BLPopCmd::BLPopCmd(const std::string& name, int16_t arity)
+    : BaseCmd(name, arity, kCmdFlagsWrite, kAclCategoryWrite | kAclCategoryList) {}
+
+bool BLPopCmd::DoInitial(PClient* client) {
+  client->SetKey(client->argv_[1]);
+  return true;
+}
+
+void BLPopCmd::DoCmd(PClient* client) {
+  std::vector<std::string> element;
+  //TODO:传入一个vector，需要循环检查
+  storage::Status s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(client->Key(), 1, &element);
+  if (s.ok()) {
+    client->AppendString(element[0]);
+    return;
+  } else if (s.IsNotFound()){
+    BlockThisClientToWaitLRPush(element, client);
+  } else {
+    client->SetRes(CmdRes::kErrOther, s.ToString());
+    return;
+  }
+} 
+
+void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, PClient* client) {
+  auto& key_to_conns_ = g_pikiwidb->GetMapFromKeyToConns();
+  for (auto& key : keys) {
+    auto it = key_to_conns_.find(key);
+    if (it == key_to_conns_.end()) {
+      key_to_conns_.emplace(key, std::make_unique<std::list<PClient*>>());
+      it = key_to_conns_.find(key);
+    }
+    auto& wait_list_of_this_key = it->second;
+    wait_list_of_this_key->emplace_back(client);
   }
 }
 

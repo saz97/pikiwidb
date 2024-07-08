@@ -130,6 +130,7 @@ const std::string kCmdNameLPushx = "lpushx";
 const std::string kCmdNameRPush = "rpush";
 const std::string kCmdNameRPushx = "rpushx";
 const std::string kCmdNameLPop = "lpop";
+const std::string kCmdNameBLPop = "blpop";
 const std::string kCmdNameRPop = "rpop";
 const std::string kCmdNameLRem = "lrem";
 const std::string kCmdNameLRange = "lrange";
