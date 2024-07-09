@@ -29,7 +29,6 @@ void LPushCmd::DoCmd(PClient* client) {
   } else {
     client->SetRes(CmdRes::kSyntaxErr, "lpush cmd error");
   }
-  INFO("client->Key() = {}", client->Key());
   ServeAndUnblockConns(client->Key());
 }
 
@@ -150,7 +149,6 @@ void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, PClie
   }
   auto& wait_list_of_this_key = it->second;
   wait_list_of_this_key->emplace_back(client);
-  INFO("wait list length of key {} after blpop = {}", key, wait_list_of_this_key->size());
 }
 
 LPopCmd::LPopCmd(const std::string& name, int16_t arity)
