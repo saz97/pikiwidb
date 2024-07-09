@@ -98,8 +98,10 @@ BaseCmd* BaseCmdGroup::GetSubCmd(const std::string& cmdName) {
 
 void BaseCmd::ServeAndUnblockConns(const std::string& key) {
   auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
-  if (auto it = key_to_conns.find(blrPop_key); it == key_to_conns.end()) {
+  auto it = key_to_conns.find(key);
+  if (it == key_to_conns.end()) {
       // no client is waitting for this key
+      INFO ("not find key {} in KeyToConnsMap", key);
       return;
   }
   auto& waitting_list = it->second;
@@ -110,7 +112,9 @@ void BaseCmd::ServeAndUnblockConns(const std::string& key) {
   for (auto conn_blocked = waitting_list->begin(); conn_blocked != waitting_list->end();) {
     PClient* client = *conn_blocked;
     s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(key, 1, &elements);
+    INFO("s = {}", s.ToString());
     if (s.ok()) {
+      INFO("elements = {}", elements[0]);
       client->AppendString(elements[0]);
     } else if (s.IsNotFound()) {
       // this key has no more elements to serve more blocked conn.
@@ -118,8 +122,9 @@ void BaseCmd::ServeAndUnblockConns(const std::string& key) {
     } else {
       client->SetRes(CmdRes::kErrOther, s.ToString());
     }
+    client->WriteReply2Client();
     conn_blocked = waitting_list->erase(conn_blocked);  // remove this conn from current waiting list
-    
+    INFO("wait list length of key {} unblock = {}", key, waitting_list->size());
   }
 }
 

@@ -316,7 +316,7 @@ class BaseCmd : public std::enable_shared_from_this<BaseCmd> {
 
   uint32_t GetCmdID() const;
 
-  void ServeAndUnblockConns(const std::string& key, std::shared_ptr<DB> db);
+  void ServeAndUnblockConns(const std::string& key);
 
  protected:
   // Execute a specific command

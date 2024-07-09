@@ -29,6 +29,8 @@ void LPushCmd::DoCmd(PClient* client) {
   } else {
     client->SetRes(CmdRes::kSyntaxErr, "lpush cmd error");
   }
+  INFO("client->Key() = {}", client->Key());
+  ServeAndUnblockConns(client->Key());
 }
 
 LPushxCmd::LPushxCmd(const std::string& name, int16_t arity)
@@ -126,7 +128,6 @@ bool BLPopCmd::DoInitial(PClient* client) {
 
 void BLPopCmd::DoCmd(PClient* client) {
   std::vector<std::string> element;
-  //TODO:传入一个vector，需要循环检查
   storage::Status s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(client->Key(), 1, &element);
   if (s.ok()) {
     client->AppendString(element[0]);
@@ -141,15 +142,15 @@ void BLPopCmd::DoCmd(PClient* client) {
 
 void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, PClient* client) {
   auto& key_to_conns_ = g_pikiwidb->GetMapFromKeyToConns();
-  for (auto& key : keys) {
-    auto it = key_to_conns_.find(key);
-    if (it == key_to_conns_.end()) {
-      key_to_conns_.emplace(key, std::make_unique<std::list<PClient*>>());
-      it = key_to_conns_.find(key);
-    }
-    auto& wait_list_of_this_key = it->second;
-    wait_list_of_this_key->emplace_back(client);
+  std::string key = client->Key();
+  auto it = key_to_conns_.find(key);
+  if (it == key_to_conns_.end()) {
+    key_to_conns_.emplace(key, std::make_unique<std::list<PClient*>>());
+    it = key_to_conns_.find(key);
   }
+  auto& wait_list_of_this_key = it->second;
+  wait_list_of_this_key->emplace_back(client);
+  INFO("wait list length of key {} after blpop = {}", key, wait_list_of_this_key->size());
 }
 
 LPopCmd::LPopCmd(const std::string& name, int16_t arity)
