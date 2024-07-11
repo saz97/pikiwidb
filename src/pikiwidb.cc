@@ -124,6 +124,23 @@ void PikiwiDB::OnNewConnection(pikiwidb::TcpConnection* obj) {
   obj->SetSlaveEventLoopSelector([this]() { return slave_threads_.ChooseNextWorkerEventLoop(); });
 }
 
+void PikiwiDB::ScanExpiredBlockedConnsOfBlrpop() {
+  auto& key_to_blocked_conns = g_pikiwidb->GetMapFromKeyToConns();
+  for (auto& it : key_to_blocked_conns) {
+    auto& conns_list = it.second;
+    for (auto conn_node = conns_list->begin(); conn_node != conns_list->end();) {
+      if (conn_node->IsExpired()) {
+        PClient* conn_ptr = conn_node->GetBlockedClient();
+        conn_ptr->AppendString("");
+        conn_ptr->WriteReply2Client();
+        conn_node = conns_list->erase(conn_node);
+      } else {
+        conn_node++;
+      }
+    }
+  }
+}
+
 bool PikiwiDB::Init() {
   char runid[kRunidSize + 1] = "";
   getRandomHexChars(runid, kRunidSize);
@@ -168,6 +185,8 @@ bool PikiwiDB::Init() {
   auto loop = worker_threads_.BaseLoop();
   loop->ScheduleRepeatedly(1000, &PReplication::Cron, &PREPL);
 
+  auto task = std::bind(&PikiwiDB::ScanExpiredBlockedConnsOfBlrpop, this);
+  loop->ScheduleRepeatedly(250, task);
   // master ip
   if (!g_config.ip.empty()) {
     PREPL.SetMasterAddr(g_config.master_ip.ToString().c_str(), g_config.master_port.load());

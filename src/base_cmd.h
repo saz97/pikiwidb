@@ -364,4 +364,18 @@ class BaseCmdGroup : public BaseCmd {
  private:
   std::map<std::string, std::unique_ptr<BaseCmd>> subCmds_;
 };
+
+class BlockedConnNode {
+ public:
+  virtual ~BlockedConnNode() {}
+  BlockedConnNode(int64_t expire_time, PClient* client)
+      : expire_time_(expire_time), client_(client) {}
+  bool IsExpired();
+  PClient* GetBlockedClient() {return client_;}
+
+ private:
+  int64_t expire_time_;
+  PClient* client_;
+};
+
 }  // namespace pikiwidb

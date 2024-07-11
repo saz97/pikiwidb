@@ -40,8 +40,9 @@ class BLPopCmd : public BaseCmd {
 
  private:
   void DoCmd(PClient* client) override;
-  void BlockThisClientToWaitLRPush(std::vector<std::string>& keys, PClient* client);
+  void BlockThisClientToWaitLRPush(std::vector<std::string>& keys, int64_t expire_time, PClient* client);
 
+  int64_t expire_time_{0};
 };
 
 class RPopCmd : public BaseCmd {

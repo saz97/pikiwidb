@@ -109,9 +109,11 @@ void BaseCmd::ServeAndUnblockConns(const std::string& key) {
 
   // traverse this list from head to tail(in the order of adding sequence) ,means "first blocked, first get served“
   for (auto conn_blocked = waitting_list->begin(); conn_blocked != waitting_list->end();) {
-    PClient* client = *conn_blocked;
+    PClient* client = (*conn_blocked).GetBlockedClient();
     s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(key, 1, &elements);
     if (s.ok()) {
+      client->AppendArrayLen(2);
+      client->AppendString(client->Key());
       client->AppendString(elements[0]);
     } else if (s.IsNotFound()) {
       // this key has no more elements to serve more blocked conn.
@@ -131,6 +133,18 @@ bool BaseCmdGroup::DoInitial(PClient* client) {
     return false;
   }
   return true;
+}
+
+bool BlockedConnNode::IsExpired() {
+  if (expire_time_ == 0) {
+    return false;
+  }
+  auto now = std::chrono::system_clock::now();
+  int64_t now_in_ms = std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch().count();
+  if (expire_time_ <= now_in_ms) {
+    return true;
+  }
+  return false;
 }
 
 }  // namespace pikiwidb

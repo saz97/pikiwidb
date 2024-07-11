@@ -122,33 +122,52 @@ BLPopCmd::BLPopCmd(const std::string& name, int16_t arity)
 
 bool BLPopCmd::DoInitial(PClient* client) {
   client->SetKey(client->argv_[1]);
+  int64_t timeout = 0;
+  if (!pstd::String2int(client->argv_.back().data(), client->argv_.back().size(), &timeout)) {
+    client->SetRes(CmdRes::kInvalidInt);
+    return false;
+  }
+  constexpr int64_t seconds_of_ten_years = 10 * 365 * 24 * 3600;
+  if (timeout < 0 || timeout > seconds_of_ten_years) {
+    client->SetRes(CmdRes::kErrOther,
+                "timeout can't be a negative value and can't exceed the number of seconds in 10 years");
+    return false;
+  }
+
+  if (timeout > 0) {
+    auto now = std::chrono::system_clock::now();
+    expire_time_ =
+        std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch().count() + timeout * 1000;
+  }
   return true;
 }
 
 void BLPopCmd::DoCmd(PClient* client) {
-  std::vector<std::string> element;
-  storage::Status s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(client->Key(), 1, &element);
+  std::vector<std::string> elements;
+  storage::Status s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(client->Key(), 1, &elements);
   if (s.ok()) {
-    client->AppendString(element[0]);
+    client->AppendArrayLen(2);
+    client->AppendString(client->Key());
+    client->AppendString(elements[0]);
     return;
   } else if (s.IsNotFound()){
-    BlockThisClientToWaitLRPush(element, client);
+    BlockThisClientToWaitLRPush(elements, expire_time_, client);
   } else {
     client->SetRes(CmdRes::kErrOther, s.ToString());
     return;
   }
 } 
 
-void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, PClient* client) {
-  auto& key_to_conns_ = g_pikiwidb->GetMapFromKeyToConns();
+void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, int64_t expire_time, PClient* client) {
+  auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
   std::string key = client->Key();
-  auto it = key_to_conns_.find(key);
-  if (it == key_to_conns_.end()) {
-    key_to_conns_.emplace(key, std::make_unique<std::list<PClient*>>());
-    it = key_to_conns_.find(key);
+  auto it = key_to_conns.find(key);
+  if (it == key_to_conns.end()) {
+    key_to_conns.emplace(key, std::make_unique<std::list<BlockedConnNode>>());
+    it = key_to_conns.find(key);
   }
   auto& wait_list_of_this_key = it->second;
-  wait_list_of_this_key->emplace_back(client);
+  wait_list_of_this_key->emplace_back(expire_time, client);
 }
 
 LPopCmd::LPopCmd(const std::string& name, int16_t arity)
