@@ -153,19 +153,19 @@ start_server {
     #}
 
     # Pikiwi does not support blpop
-    # test "BLPOP, LPUSH + DEL should not awake blocked client" {
-    #     set rd [redis_deferring_client]
-    #     r del list
+    test "BLPOP, LPUSH + DEL should not awake blocked client" {
+        set rd [redis_deferring_client]
+        r del list
 
-    #     $rd blpop list 0
-    #     r multi
-    #     r lpush list a
-    #     r del list
-    #     r exec
-    #     r del list
-    #     r lpush list b
-    #     $rd read
-    # } {list b}
+        $rd blpop list 0
+        r multi
+        r lpush list a
+        r del list
+        r exec
+        r del list
+        r lpush list b
+        $rd read
+    } {list b}
 
     # Pikiwi does not support blpop
     # test "BLPOP, LPUSH + DEL + SET should not awake blocked client" {

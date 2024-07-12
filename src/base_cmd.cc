@@ -97,12 +97,16 @@ BaseCmd* BaseCmdGroup::GetSubCmd(const std::string& cmdName) {
 }
 
 void BaseCmd::ServeAndUnblockConns(const std::string& key) {
+  std::shared_lock<std::shared_mutex> read_latch(g_pikiwidb->GetBlockMtx());
   auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
   auto it = key_to_conns.find(key);
   if (it == key_to_conns.end()) {
       // no client is waitting for this key
       return;
   }
+  read_latch.unlock();
+
+  std::unique_lock<std::shared_mutex> write_lock(g_pikiwidb->GetBlockMtx());
   auto& waitting_list = it->second;
   std::vector<std::string> elements;
   storage::Status s;

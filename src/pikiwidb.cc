@@ -125,6 +125,7 @@ void PikiwiDB::OnNewConnection(pikiwidb::TcpConnection* obj) {
 }
 
 void PikiwiDB::ScanExpiredBlockedConnsOfBlrpop() {
+  std::unique_lock<std::shared_mutex> latch(block_mtx_);
   auto& key_to_blocked_conns = g_pikiwidb->GetMapFromKeyToConns();
   for (auto& it : key_to_blocked_conns) {
     auto& conns_list = it.second;

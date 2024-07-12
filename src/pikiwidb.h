@@ -49,6 +49,8 @@ class PikiwiDB final {
     return key_to_blocked_conns_;
   }
 
+  std::shared_mutex& GetBlockMtx() { return block_mtx_; };
+  
   void ScanExpiredBlockedConnsOfBlrpop();
   
  public:
@@ -74,6 +76,11 @@ class PikiwiDB final {
    *  were blocked by command blpop/brpop with key.
    */
   std::unordered_map<std::string, std::unique_ptr<std::list<pikiwidb::BlockedConnNode>>> key_to_blocked_conns_;
+
+  /*
+   * latch of above map.
+   */
+  std::shared_mutex block_mtx_;
 
   uint32_t cmd_id_ = 0;
 };

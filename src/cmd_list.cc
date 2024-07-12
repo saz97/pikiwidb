@@ -160,6 +160,7 @@ void BLPopCmd::DoCmd(PClient* client) {
 
 void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, int64_t expire_time, PClient* client) {
   auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
+  std::unique_lock<std::shared_mutex> latch(g_pikiwidb->GetBlockMtx());
   std::string key = client->Key();
   auto it = key_to_conns.find(key);
   if (it == key_to_conns.end()) {
