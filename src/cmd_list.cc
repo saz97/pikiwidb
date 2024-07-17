@@ -29,7 +29,7 @@ void LPushCmd::DoCmd(PClient* client) {
   } else {
     client->SetRes(CmdRes::kSyntaxErr, "lpush cmd error");
   }
-  ServeAndUnblockConns(client->Key());
+  ServeAndUnblockConns(client);
 }
 
 LPushxCmd::LPushxCmd(const std::string& name, int16_t arity)
@@ -159,13 +159,14 @@ void BLPopCmd::DoCmd(PClient* client) {
 } 
 
 void BLPopCmd::BlockThisClientToWaitLRPush(std::vector<std::string>& keys, int64_t expire_time, PClient* client) {
-  auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
   std::unique_lock<std::shared_mutex> latch(g_pikiwidb->GetBlockMtx());
+  auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
   std::string key = client->Key();
-  auto it = key_to_conns.find(key);
+  pikiwidb::BlockKey blpop_key{client->GetCurrentDB(), key};
+  auto it = key_to_conns.find(blpop_key);
   if (it == key_to_conns.end()) {
-    key_to_conns.emplace(key, std::make_unique<std::list<BlockedConnNode>>());
-    it = key_to_conns.find(key);
+    key_to_conns.emplace(blpop_key, std::make_unique<std::list<BlockedConnNode>>());
+    it = key_to_conns.find(blpop_key);
   }
   auto& wait_list_of_this_key = it->second;
   wait_list_of_this_key->emplace_back(expire_time, client);

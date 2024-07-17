@@ -96,7 +96,8 @@ BaseCmd* BaseCmdGroup::GetSubCmd(const std::string& cmdName) {
   return subCmd->second.get();
 }
 
-void BaseCmd::ServeAndUnblockConns(const std::string& key) {
+void BaseCmd::ServeAndUnblockConns(PClient* client) {
+  pikiwidb::BlockKey key{client->GetCurrentDB(), client->Key()};
   std::shared_lock<std::shared_mutex> read_latch(g_pikiwidb->GetBlockMtx());
   auto& key_to_conns = g_pikiwidb->GetMapFromKeyToConns();
   auto it = key_to_conns.find(key);
@@ -113,19 +114,19 @@ void BaseCmd::ServeAndUnblockConns(const std::string& key) {
 
   // traverse this list from head to tail(in the order of adding sequence) ,means "first blocked, first get served“
   for (auto conn_blocked = waitting_list->begin(); conn_blocked != waitting_list->end();) {
-    PClient* client = (*conn_blocked).GetBlockedClient();
-    s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(key, 1, &elements);
+    PClient* BlockedClient = (*conn_blocked).GetBlockedClient();
+    s = PSTORE.GetBackend(client->GetCurrentDB())->GetStorage()->LPop(key.key, 1, &elements);
     if (s.ok()) {
-      client->AppendArrayLen(2);
-      client->AppendString(client->Key());
-      client->AppendString(elements[0]);
+      BlockedClient->AppendArrayLen(2);
+      BlockedClient->AppendString(client->Key());
+      BlockedClient->AppendString(elements[0]);
     } else if (s.IsNotFound()) {
       // this key has no more elements to serve more blocked conn.
       break;
     } else {
-      client->SetRes(CmdRes::kErrOther, s.ToString());
+      BlockedClient->SetRes(CmdRes::kErrOther, s.ToString());
     }
-    client->WriteReply2Client();
+    BlockedClient->WriteReply2Client();
     conn_blocked = waitting_list->erase(conn_blocked);  // remove this conn from current waiting list
   }
 }

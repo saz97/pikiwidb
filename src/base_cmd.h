@@ -316,7 +316,7 @@ class BaseCmd : public std::enable_shared_from_this<BaseCmd> {
 
   uint32_t GetCmdID() const;
 
-  void ServeAndUnblockConns(const std::string& key);
+  void ServeAndUnblockConns(PClient* client);
 
  protected:
   // Execute a specific command
@@ -376,6 +376,18 @@ class BlockedConnNode {
  private:
   int64_t expire_time_;
   PClient* client_;
+};
+
+struct BlockKey {  // this data struct is made for the scenario of multi dbs in pika.
+  int db_id;
+  std::string key;
+  bool operator==(const BlockKey& p) const { return p.db_id == db_id && p.key == key; }
+};
+
+struct BlockKeyHash {
+  std::size_t operator()(const BlockKey& k) const {
+    return std::hash<int>{}(k.db_id) ^ std::hash<std::string>{}(k.key);
+  }
 };
 
 }  // namespace pikiwidb

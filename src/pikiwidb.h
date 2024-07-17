@@ -45,7 +45,7 @@ class PikiwiDB final {
 
   void PushWriteTask(const std::shared_ptr<pikiwidb::PClient>& client) { worker_threads_.PushWriteTask(client); }
 
-  std::unordered_map<std::string, std::unique_ptr<std::list<pikiwidb::BlockedConnNode>>>& GetMapFromKeyToConns() {
+  std::unordered_map<pikiwidb::BlockKey, std::unique_ptr<std::list<pikiwidb::BlockedConnNode>>, pikiwidb::BlockKeyHash>& GetMapFromKeyToConns() {
     return key_to_blocked_conns_;
   }
 
@@ -75,7 +75,7 @@ class PikiwiDB final {
    *  mapping from key to a list that stored the nodes of client-connections that
    *  were blocked by command blpop/brpop with key.
    */
-  std::unordered_map<std::string, std::unique_ptr<std::list<pikiwidb::BlockedConnNode>>> key_to_blocked_conns_;
+  std::unordered_map<pikiwidb::BlockKey, std::unique_ptr<std::list<pikiwidb::BlockedConnNode>>, pikiwidb::BlockKeyHash> key_to_blocked_conns_;
 
   /*
    * latch of above map.
